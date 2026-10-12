@@ -28,8 +28,11 @@
 //! at end of stream. Tempo is settable mid-stream.
 //!
 //! ```
+//! use std::num::{NonZeroU16, NonZeroU32};
 //! use wsola::TimeStretch;
-//! let mut ts = TimeStretch::new(44_100, 2).unwrap();
+//! let sr = NonZeroU32::new(44_100).unwrap();
+//! let ch = NonZeroU16::new(2).unwrap();
+//! let mut ts = TimeStretch::new(sr, ch).unwrap();
 //! ts.set_tempo(1.5); // 1.5x faster, same pitch
 //! ts.push(&[0.0f32; 4096]); // interleaved stereo frames from the decoder
 //! let out = ts.pull(1024); // interleaved frames for the output sink
@@ -123,8 +126,7 @@ impl TimeStretch {
     /// channels, with the default [`Config`].
     ///
     /// # Errors
-    /// [`Error::InvalidSampleRate`] if `sample_rate` is 0, [`Error::InvalidChannels`]
-    /// if `channels` is 0.
+    /// Nothing currently; the `Result` is kept for future construction errors.
     pub fn new(sample_rate: NonZeroU32, channels: NonZeroU16) -> Result<Self> {
         Self::with_config(sample_rate, channels, Config::default())
     }
@@ -388,12 +390,17 @@ fn hann(n: usize) -> Vec<f32> {
 /// `flush`, and a good first port of call for offline use and tests.
 ///
 /// # Errors
-/// [`Error::InvalidChannels`] if `channels` is 0, [`Error::UnalignedInput`] if
-/// `samples` is not a whole number of frames, or a construction error from
-/// [`TimeStretch::new`].
+/// [`Error::UnalignedInput`] if `samples` is not a whole number of frames.
 ///
 /// ```
-/// let out = wsola::stretch(&[0.0f32; 8000], 8000, 1, 2.0).unwrap();
+/// # use std::num::{NonZeroU16, NonZeroU32};
+/// let out = wsola::stretch(
+///     &[0.0f32; 8000],
+///     NonZeroU32::new(8000).unwrap(),
+///     NonZeroU16::new(1).unwrap(),
+///     2.0,
+/// )
+/// .unwrap();
 /// assert!(out.len() < 8000); // roughly half as long at 2x
 /// ```
 pub fn stretch(
