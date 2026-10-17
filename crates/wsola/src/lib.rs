@@ -363,24 +363,32 @@ impl TimeStretch {
         }
         let src = best;
 
+        // Pre-slice the input so that bound checks are done once
+        // and have less indexing calculations in the loop.
+        let input_start_idx = (src - origin) * ch;
+        let src_slice_first = &input[input_start_idx..input_start_idx + target_len];
+        let src_slice_second =
+            &input[input_start_idx + target_len..input_start_idx + target_len * 2];
+        let window_slice = &self.window[..hop];
+
         // Overlap-add the frame's first half onto the open tail, emit it, and
         // keep the windowed second half as the new tail.
-        for i in 0..hop {
-            let base_accum_idx = i * ch;
-            let src_pos = src + i;
-            let win = self.window[i];
+        for (i, win) in window_slice.iter().enumerate() {
+            let base_idx = i * ch;
             for c in 0..ch {
-                let v = self.accum[base_accum_idx + c] + at(src_pos, c) * win;
+                let sample_idx = base_idx + c;
+                let v = self.accum[sample_idx] + src_slice_first[sample_idx] * win;
                 self.output.push(v);
             }
         }
-        let base_src_pos = src + hop;
-        for i in 0..hop {
-            let base_accum_idx = i * ch;
-            let src_pos = base_src_pos + i;
-            let win = self.window[hop + i];
+
+        let window_slice = &self.window[hop..hop * 2];
+
+        for (i, win) in window_slice.iter().enumerate() {
+            let base_idx = i * ch;
             for c in 0..ch {
-                self.accum[base_accum_idx + c] = at(src_pos, c) * win;
+                let sample_idx = base_idx + c;
+                self.accum[sample_idx] = src_slice_second[sample_idx] * win;
             }
         }
 
