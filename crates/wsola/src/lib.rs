@@ -283,26 +283,37 @@ impl TimeStretch {
         let origin = self.origin;
         let input = &self.input;
 
-        let at = |pos: usize, channel: usize| -> f32 { input[(pos - origin) * ch + channel] };
-
         if !self.primed {
             if origin + frame > avail_end {
                 return false;
             }
-            for i in 0..hop {
-                let src_pos = origin + i;
-                let win = self.window[i];
+
+            // Pre-slice the input so that bound checks are done once
+            // and have to have less calculations in the loops.
+            let input_start_idx = origin * ch;
+            let target_len = hop * ch;
+            let input_slice = &input[input_start_idx..input_start_idx + target_len];
+            let window_slice = &self.window[..hop];
+
+            for (i, win) in window_slice.iter().enumerate() {
+                let base_idx = i * ch;
                 for c in 0..ch {
-                    self.output.push(at(src_pos, c) * win);
+                    let sample_idx = base_idx + c;
+                    self.output.push(input_slice[sample_idx] * win);
                 }
             }
-            let base_src_pos = origin + hop;
-            for i in 0..hop {
-                let src_pos = base_src_pos + i;
-                let win = self.window[hop + i];
-                let base_accum_idx = i * ch;
+
+            // Pre-slice the input so that bound checks are done once
+            // and have to have less calculations in the loops.
+            let input_slice =
+                &input[input_start_idx + target_len..input_start_idx + target_len * 2];
+            let window_slice = &self.window[hop..hop * 2];
+
+            for (i, win) in window_slice.iter().enumerate() {
+                let base_idx = i * ch;
                 for c in 0..ch {
-                    self.accum[base_accum_idx + c] = at(src_pos, c) * win;
+                    let sample_idx = base_idx + c;
+                    self.accum[sample_idx] = input_slice[sample_idx] * win;
                 }
             }
             self.last_src = origin;
