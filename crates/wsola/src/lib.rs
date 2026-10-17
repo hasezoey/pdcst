@@ -279,27 +279,27 @@ impl TimeStretch {
     /// needs more input.
     fn step(&mut self) -> bool {
         let ch = self.channels_usize();
-        let ss = self.hop;
+        let hop = self.hop;
         let frame = self.frame;
         let avail_end = self.avail_end();
 
-        self.output.reserve(ss * ch);
+        self.output.reserve(hop * ch);
 
         if !self.primed {
             if self.origin + frame > avail_end {
                 return false;
             }
             let src = self.origin;
-            for i in 0..ss {
+            for i in 0..hop {
                 let src_pos = src + i;
                 for c in 0..ch {
                     self.output.push(self.at(src_pos, c) * self.window[i]);
                 }
             }
-            let base_src_pos = src + ss;
-            for i in 0..ss {
+            let base_src_pos = src + hop;
+            for i in 0..hop {
                 let src_pos = base_src_pos + i;
-                let window_idx = ss + i;
+                let window_idx = hop + i;
                 let base_accum_idx = i * ch;
                 for c in 0..ch {
                     self.accum[base_accum_idx + c] = self.at(src_pos, c) * self.window[window_idx];
@@ -315,18 +315,18 @@ impl TimeStretch {
         let base = self.ideal.round() as i64;
         let cmin = self.origin as i64;
         let cmax = avail_end as i64 - frame as i64;
-        let target = self.last_src + ss;
+        let target = self.last_src + hop;
 
         // The highest input index this step could read: the top candidate's
         // frame end, or the correlation target's end. Unless we are draining the
         // last frames at end of stream, wait until all of it is buffered, so the
         // search sees the same full candidate range it would in one shot.
-        let needed_end = (base + self.search as i64 + frame as i64).max((target + ss) as i64);
+        let needed_end = (base + self.search as i64 + frame as i64).max((target + hop) as i64);
         if !self.draining && needed_end > avail_end as i64 {
             return false;
         }
         // Even draining, we need at least one full candidate frame and the target.
-        if cmax < cmin || target + ss > avail_end {
+        if cmax < cmin || target + hop > avail_end {
             return false;
         }
 
@@ -343,7 +343,7 @@ impl TimeStretch {
         for cand in lo..=hi {
             let cand = cand as usize;
             let mut score = 0.0f32;
-            for i in 0..ss {
+            for i in 0..hop {
                 let cand_pos = cand + i;
                 let target_pos = target + i;
                 for c in 0..ch {
@@ -359,7 +359,7 @@ impl TimeStretch {
 
         // Overlap-add the frame's first half onto the open tail, emit it, and
         // keep the windowed second half as the new tail.
-        for i in 0..ss {
+        for i in 0..hop {
             let base_accum_idx = i * ch;
             let src_pos = src + i;
             for c in 0..ch {
@@ -367,11 +367,11 @@ impl TimeStretch {
                 self.output.push(v);
             }
         }
-        let base_src_pos = src + ss;
-        for i in 0..ss {
+        let base_src_pos = src + hop;
+        for i in 0..hop {
             let base_accum_idx = i * ch;
             let src_pos = base_src_pos + i;
-            let window_idx = ss + i;
+            let window_idx = hop + i;
             for c in 0..ch {
                 self.accum[base_accum_idx + c] = self.at(src_pos, c) * self.window[window_idx];
             }
