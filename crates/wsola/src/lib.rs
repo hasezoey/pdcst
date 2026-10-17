@@ -336,20 +336,26 @@ impl TimeStretch {
             return false;
         }
 
+        // Pre-slice the input so that bound checks are done once
+        // and have to have less calculations in the loops.
+        let input_start_idx = (target - origin) * ch;
+        let target_len = hop * ch;
+        let input_slice = &input[input_start_idx..input_start_idx + target_len];
+
         // Pick the source frame whose leading overlap best correlates with the
         // natural continuation of the previous frame (input at `target`).
         let mut best = lo as usize;
         let mut best_score = f32::NEG_INFINITY;
         for cand in lo..=hi {
             let cand = cand as usize;
+            let cand_start_idx = (cand - origin) * ch;
+            let cand_slice = &input[cand_start_idx..cand_start_idx + target_len];
             let mut score = 0.0f32;
-            for i in 0..hop {
-                let cand_pos = cand + i;
-                let target_pos = target + i;
-                for c in 0..ch {
-                    score += at(cand_pos, c) * at(target_pos, c);
-                }
+
+            for i in 0..target_len {
+                score += cand_slice[i] * input_slice[i];
             }
+
             if score > best_score {
                 best_score = score;
                 best = cand;
