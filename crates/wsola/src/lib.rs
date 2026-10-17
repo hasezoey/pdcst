@@ -286,10 +286,10 @@ impl TimeStretch {
         self.output.reserve(hop * ch);
 
         if !self.primed {
-            if self.origin + frame > avail_end {
+            let src = self.origin;
+            if src + frame > avail_end {
                 return false;
             }
-            let src = self.origin;
             for i in 0..hop {
                 let src_pos = src + i;
                 for c in 0..ch {
