@@ -292,17 +292,18 @@ impl TimeStretch {
             }
             for i in 0..hop {
                 let src_pos = src + i;
+                let win = self.window[i];
                 for c in 0..ch {
-                    self.output.push(self.at(src_pos, c) * self.window[i]);
+                    self.output.push(self.at(src_pos, c) * win);
                 }
             }
             let base_src_pos = src + hop;
             for i in 0..hop {
                 let src_pos = base_src_pos + i;
-                let window_idx = hop + i;
+                let win = self.window[hop + i];
                 let base_accum_idx = i * ch;
                 for c in 0..ch {
-                    self.accum[base_accum_idx + c] = self.at(src_pos, c) * self.window[window_idx];
+                    self.accum[base_accum_idx + c] = self.at(src_pos, c) * win;
                 }
             }
             self.last_src = src;
@@ -362,8 +363,9 @@ impl TimeStretch {
         for i in 0..hop {
             let base_accum_idx = i * ch;
             let src_pos = src + i;
+            let win = self.window[i];
             for c in 0..ch {
-                let v = self.accum[base_accum_idx + c] + self.at(src_pos, c) * self.window[i];
+                let v = self.accum[base_accum_idx + c] + self.at(src_pos, c) * win;
                 self.output.push(v);
             }
         }
@@ -371,9 +373,9 @@ impl TimeStretch {
         for i in 0..hop {
             let base_accum_idx = i * ch;
             let src_pos = base_src_pos + i;
-            let window_idx = hop + i;
+            let win = self.window[hop + i];
             for c in 0..ch {
-                self.accum[base_accum_idx + c] = self.at(src_pos, c) * self.window[window_idx];
+                self.accum[base_accum_idx + c] = self.at(src_pos, c) * win;
             }
         }
 
