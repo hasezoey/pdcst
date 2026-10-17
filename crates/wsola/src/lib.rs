@@ -424,8 +424,13 @@ impl TimeStretch {
 /// A periodic Hann window of length `n` (`w[i] = 0.5 - 0.5*cos(2*pi*i/n)`), which
 /// sums to unity at 50% overlap so overlap-add reconstructs gain exactly.
 fn hann(n: usize) -> Vec<f32> {
+    if n <= 1 {
+        return vec![1.0; n];
+    }
+
+    let denom = (n - 1) as f32;
     (0..n)
-        .map(|i| 0.5 - 0.5 * (2.0 * PI * i as f32 / n as f32).cos())
+        .map(|i| 0.5 - 0.5 * (2.0 * PI * i as f32 / denom).cos())
         .collect()
 }
 
