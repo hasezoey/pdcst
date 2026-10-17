@@ -223,15 +223,19 @@ impl TimeStretch {
     pub fn flush(&mut self) -> impl Iterator<Item = f32> {
         self.draining = true;
         while self.step() {}
+
         if self.primed {
+            let ch = self.channels_usize();
             for i in 0..self.hop {
-                for c in 0..self.channels_usize() {
-                    self.output.push(self.accum[i * self.channels_usize() + c]);
+                let base_accum_idx = i * ch;
+                for c in 0..ch {
+                    self.output.push(self.accum[base_accum_idx + c]);
                 }
             }
             self.primed = false;
             self.accum.fill(0.0);
         }
+
         // Resume cleanly if the caller pushes more input after a flush.
         self.draining = false;
         self.output.drain(..)
@@ -287,13 +291,18 @@ impl TimeStretch {
             }
             let src = self.origin;
             for i in 0..ss {
+                let src_pos = src + i;
                 for c in 0..ch {
-                    self.output.push(self.at(src + i, c) * self.window[i]);
+                    self.output.push(self.at(src_pos, c) * self.window[i]);
                 }
             }
+            let base_src_pos = src + ss;
             for i in 0..ss {
+                let src_pos = base_src_pos + i;
+                let window_idx = ss + i;
+                let base_accum_idx = i * ch;
                 for c in 0..ch {
-                    self.accum[i * ch + c] = self.at(src + ss + i, c) * self.window[ss + i];
+                    self.accum[base_accum_idx + c] = self.at(src_pos, c) * self.window[window_idx];
                 }
             }
             self.last_src = src;
@@ -335,8 +344,10 @@ impl TimeStretch {
             let cand = cand as usize;
             let mut score = 0.0f32;
             for i in 0..ss {
+                let cand_pos = cand + i;
+                let target_pos = target + i;
                 for c in 0..ch {
-                    score += self.at(cand + i, c) * self.at(target + i, c);
+                    score += self.at(cand_pos, c) * self.at(target_pos, c);
                 }
             }
             if score > best_score {
@@ -349,14 +360,20 @@ impl TimeStretch {
         // Overlap-add the frame's first half onto the open tail, emit it, and
         // keep the windowed second half as the new tail.
         for i in 0..ss {
+            let base_accum_idx = i * ch;
+            let src_pos = src + i;
             for c in 0..ch {
-                let v = self.accum[i * ch + c] + self.at(src + i, c) * self.window[i];
+                let v = self.accum[base_accum_idx + c] + self.at(src_pos, c) * self.window[i];
                 self.output.push(v);
             }
         }
+        let base_src_pos = src + ss;
         for i in 0..ss {
+            let base_accum_idx = i * ch;
+            let src_pos = base_src_pos + i;
+            let window_idx = ss + i;
             for c in 0..ch {
-                self.accum[i * ch + c] = self.at(src + ss + i, c) * self.window[ss + i];
+                self.accum[base_accum_idx + c] = self.at(src_pos, c) * self.window[window_idx];
             }
         }
 
