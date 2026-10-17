@@ -261,11 +261,6 @@ impl TimeStretch {
     }
 
     #[inline]
-    fn at(&self, pos: usize, channel: usize) -> f32 {
-        self.input[(pos - self.origin) * self.channels_usize() + channel]
-    }
-
-    #[inline]
     fn avail_end(&self) -> usize {
         self.origin + self.input.len() / self.channels_usize()
     }
@@ -285,36 +280,40 @@ impl TimeStretch {
 
         self.output.reserve(hop * ch);
 
+        let origin = self.origin;
+        let input = &self.input;
+
+        let at = |pos: usize, channel: usize| -> f32 { input[(pos - origin) * ch + channel] };
+
         if !self.primed {
-            let src = self.origin;
-            if src + frame > avail_end {
+            if origin + frame > avail_end {
                 return false;
             }
             for i in 0..hop {
-                let src_pos = src + i;
+                let src_pos = origin + i;
                 let win = self.window[i];
                 for c in 0..ch {
-                    self.output.push(self.at(src_pos, c) * win);
+                    self.output.push(at(src_pos, c) * win);
                 }
             }
-            let base_src_pos = src + hop;
+            let base_src_pos = origin + hop;
             for i in 0..hop {
                 let src_pos = base_src_pos + i;
                 let win = self.window[hop + i];
                 let base_accum_idx = i * ch;
                 for c in 0..ch {
-                    self.accum[base_accum_idx + c] = self.at(src_pos, c) * win;
+                    self.accum[base_accum_idx + c] = at(src_pos, c) * win;
                 }
             }
-            self.last_src = src;
-            self.ideal = src as f64 + self.analysis_hop();
+            self.last_src = origin;
+            self.ideal = origin as f64 + self.analysis_hop();
             self.primed = true;
             self.compact();
             return true;
         }
 
         let base = self.ideal.round() as i64;
-        let cmin = self.origin as i64;
+        let cmin = origin as i64;
         let cmax = avail_end as i64 - frame as i64;
         let target = self.last_src + hop;
 
@@ -348,7 +347,7 @@ impl TimeStretch {
                 let cand_pos = cand + i;
                 let target_pos = target + i;
                 for c in 0..ch {
-                    score += self.at(cand_pos, c) * self.at(target_pos, c);
+                    score += at(cand_pos, c) * at(target_pos, c);
                 }
             }
             if score > best_score {
@@ -365,7 +364,7 @@ impl TimeStretch {
             let src_pos = src + i;
             let win = self.window[i];
             for c in 0..ch {
-                let v = self.accum[base_accum_idx + c] + self.at(src_pos, c) * win;
+                let v = self.accum[base_accum_idx + c] + at(src_pos, c) * win;
                 self.output.push(v);
             }
         }
@@ -375,7 +374,7 @@ impl TimeStretch {
             let src_pos = base_src_pos + i;
             let win = self.window[hop + i];
             for c in 0..ch {
-                self.accum[base_accum_idx + c] = self.at(src_pos, c) * win;
+                self.accum[base_accum_idx + c] = at(src_pos, c) * win;
             }
         }
 
